@@ -5,182 +5,189 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135+-009688.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-MiniCode is a lightweight, local-first AI coding assistant with streaming chat, a tool-driven agent loop, and **Retrieval-Augmented Generation (RAG)** for cross-session memory. It combines a Vue 3 frontend with a FastAPI backend and supports multiple LLM providers (Qwen, GLM, DeepSeek) with automatic failover.
+---
+
+## I. Core Project Positioning
+
+MiniCode is a lightweight, local-first AI programming assistant built with Vue3 + FastAPI.
+It features streaming dialogue, tool invocation and RAG-powered cross-session memory.
+The project supports automatic failover for multiple LLM providers and requires no database. All data is stored in local files.
 
 ---
 
-## Features
+## II. Overall Core Architecture
 
-- **Streaming Chat** — Real-time token-by-token responses over Server-Sent Events.
-- **RAG-Powered Long-Term Memory** — Automatically embeds and indexes past conversations. Subsequent queries retrieve semantically relevant context across sessions without manual pasting.
-- **Dual Modes** — `build` mode with full tool access vs. `plan` mode with read-only safety.
-- **Multi-Provider Routing** — Configurable primary and fallback LLM providers (Qwen, GLM, DeepSeek). If the primary fails, the fallback takes over seamlessly.
-- **Extensible Tool System** — Tools are auto-discovered from the `tools/` package. Add a module and it becomes available to the agent.
-- **Code-First UI** — Built-in file tree browser, Monaco code editor, and streaming diff viewer.
-- **Zero Database** — All sessions, messages, and embeddings are stored as flat JSON files. No external vector database required — embeddings are served by the LLM provider's API.
-
-> See [Design Decisions](#design-decisions) for rationale behind key architectural choices.
-
----
-
-## Architecture
+### 1. Layered Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Vue 3 Frontend                           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────────────┐   │
-│  │ FileTree │  │  Editor  │  │  Chat Panel              │   │
-│  │ Sidebar  │  │  Monaco  │  │  ┌────┐ ┌─────┐ ┌──────┐ │   │
-│  │          │  │          │  │  │User│ │Agent│ │RAG   │ │   │
-│  │          │  │          │  │  │    │ │     │ │Toggle│ │   │
-│  └──────────┘  └──────────┘  │  └────┘ └─────┘ └──────┘ │   │
-│                              └──────────────────────────┘   │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ POST /chat  (SSE stream)
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    FastAPI Backend                          │
-│                                                             │
-│  ┌─────────────┐    ┌──────────────┐    ┌────────────────┐  │
-│  │  /chat      │───▶│ Router       │───▶│ Agent          │  │
-│  │  /sessions  │    │ (primary /   │    │(memory + tools)│  │
-│  │  /sessions/ │    │  fallback)   │    └────────────────┘  │
-│  │    search   │    └──────────────┘           │            │
-│  └──────┬──────┘                               │            │
-│         │                                      ▼            │
-│         │                               ┌────────────────┐  │
-│         │                               │ Plan Generator │  │
-│         │                               │ + Builder      │  │
-│         │                               └────────────────┘  │
-│         │                                      │            │
-│         ▼                                      ▼            │
-│  ┌──────────────┐                       ┌────────────────┐  │
-│  │ RAG Retriever│                       │ Tool Registry  │  │
-│  │ embed query  │                       │ + Runner       │  │
-│  │ → cosine sim │                       │ (read, write,  │  │
-│  │ → inject ctx │                       │  search, ...)  │  │
-│  └──────┬───────┘                       └────────────────┘  │
-│         │                                                   │
-│         ▼                                                   │
-│  ┌──────────────┐                                           │
-│  │  Sessions    │  (.minicode/sessions/\*.json)             │
-│  │  + Embedding │  {meta, messages, embedding: \[...]}      │
-│  └──────────────┘                                           │
-└─────────────────────────────────────────────────────────────┘
+Frontend (Vue3) ←SSE Streaming→ Backend (FastAPI) ←API→ Multiple LLM Service Providers
 ```
 
-### RAG Flow
+- **Frontend**: File tree, Monaco code editor, chat panel, session management
+- **Backend**: API routing, LLM routing, intelligent agent, tool system, RAG memory, file storage
+- **Storage**: No database. Sessions and embedding vectors are stored in JSON files.
 
-1. User toggles `🧠 RAG` on in the chat panel.
-2. On each message, the backend embeds the query via the LLM provider's embedding API.
-3. Cosine similarity is computed against all saved session embeddings.
-4. The top-K matching sessions are retrieved and their raw messages are injected into the prompt.
-5. Retrieved messages are injected as plain text; raw embedding vectors are never sent to the model.
-6. The LLM responds with relevant context.
+### 2. Core Data Flow
+
+1. User inputs content → Frontend sends SSE streaming request
+2. Backend enables RAG (optional) → Retrieve historical session context
+3. LLM generates responses with cyclic tool invocation supported
+4. Stream results back to frontend → Real-time rendering & tool execution
 
 ---
 
-## Quick Start
+## III. Core Backend Modules
 
-### Prerequisites
+### 1. Configuration Center (`config.py`)
+
+- Unified management for LLM providers, API keys and model parameters
+- Define agent constraints (max tool cycles & execution steps)
+- Classify secure tools (read-only under Plan mode)
+
+### 2. LLM Management
+
+- **Base Provider Class**: Encapsulate common logic for streaming generation and vector embedding
+- **Multi-provider Implementation**: Tongyi Qwen, GLM, DeepSeek
+- **Routing Mechanism**: Auto switch to backup provider when primary service fails
+- **Client**: Expose unified chat and embedding interfaces
+
+### 3. Intelligent Agent
+
+- Manage dialogue context and memory
+- Control tool invocation loops to avoid infinite execution
+- Two working modes: Build (full features) / Plan (read-only)
+- Stream tokens, thinking logs and tool call events in real time
+
+### 4. Tool System (Core Highlight)
+
+- **Auto Discovery**: Load all tools automatically by scanning the `tools/` directory
+- **Decorator Registration**: Register functions as AI tools via `@tool`
+- **Auto Schema Generation**: Generate LLM tool descriptions from function signatures and docstrings
+- **File System Tools**: Read / Write / Append / Delete / Directory traversal
+- **Repository Tools**: Generate project structure, code map, repository backup
+- **Search Tools**: Search by filename, content and code symbols
+- **System Tools**: Execute shell commands
+
+### 5. RAG Cross-Session Memory (Core Highlight)
+
+- Auto generate text embedding vectors when saving sessions
+- Match historical sessions via cosine similarity
+- Inject retrieved context into prompts automatically
+- Zero extra dependency: Use official LLM embedding APIs, no local vector database required
+
+### 6. Session Management
+
+- Store sessions in local JSON files: `~/.minicode/sessions/`
+- Support CRUD, keyword search and semantic search
+- Auto generate session titles and timestamps
+
+---
+
+## IV. Core Frontend Modules
+
+### 1. Layout System
+
+- 3-column adaptive layout: Sidebar (File Tree) + Editor + Chat Panel
+- Drag-to-resize, fullscreen toggle, collapse/expand panels
+- Dark theme with optimized code syntax highlighting
+
+### 2. Core Components
+
+- **Sidebar**: Folder selection & file tree rendering
+- **Editor**: Monaco editor for code editing and diff comparison
+- **Chat**: Streaming chat, Markdown rendering, one-click code copy
+- **SessionPanel**: History session management & semantic search
+- **InputBox**: Toggle modes with Tab, send messages with Enter
+
+### 3. State Management
+
+- Reactive states: Working mode, active file, code content, diff data, panel status
+- Encapsulated actions: Mode switch, file selection, diff update
+
+### 4. API Communication
+
+- Streaming chat: Receive tokens and tool events via SSE
+- Session API: Timeout control to prevent hanging requests
+- Proxy: Frontend forwards requests to backend port 8000 via `/api`
+
+---
+
+## V. Core Technical Advantages
+
+- **Zero Deployment Cost**: No database or local models needed, one-click startup
+- **Dual-mode Security**: Read-only Plan mode prevents misoperation; Build mode for full capabilities
+- **Automatic LLM Failover**: Switch providers automatically when service fails
+- **Rich Tool Ecosystem**: 20+ out-of-the-box programming tools, easy to extend
+- **Cross-session Memory**: RAG retrieves history context automatically
+- **Fully Local**: All data stays on local devices for privacy protection
+
+---
+
+## VI. Quick Start
+
+### 1. Environment Requirements
 
 - Python 3.10+
 - Node.js 20+
-- An API key for at least one supported provider
+- Valid API keys for LLM service providers
 
-### Backend
+### 2. Start Backend
 
 ```bash
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate
+python -m venv .venv
+# Activate virtual environment
 pip install -e .
-# Optional: create backend/.env with your API keys
+# Create .env file and configure API keys
 ```
 
-### Frontend
+### 3. Start Frontend
 
 ```bash
 cd frontend/vue
 npm install
 ```
 
-### Launch
+### 4. One-click Launch
 
 ```bash
 minicode
 ```
 
-After installing the backend with `pip install -e .`, the `minicode` CLI starts both the backend (port 8000) and frontend (port 5173) simultaneously and opens the browser.
-
-To start the backend alone:
-
-```bash
-python -m minicode.main
-```
+Backend (Port 8000) and Frontend (Port 5173) will start automatically. Open browser to access.
 
 ---
 
-## Configuration
+## VII. Extension Development
 
-Set these in `backend/.env` (or export as environment variables):
+### 1. Add New AI Tools
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PRIMARY_PROVIDER` | `deepseek` | Primary LLM provider (`qwen`, `glm`, `deepseek`) |
-| `FALLBACK_PROVIDER` | `qwen` | Fallback on primary failure |
-| `EMBEDDING_PROVIDER` | `qwen` | Provider used for RAG embeddings (`qwen` or `glm`) |
-| `QWEN_API_KEY` | — | API key for Qwen |
-| `GLM_API_KEY` | — | API key for GLM |
-| `DEEPSEEK_API_KEY` | — | API key for DeepSeek |
+1. Create a new module under `tools/`
+2. Register function with `@tool` decorator
+3. Complete function signature and docstring (for auto schema generation)
+4. Restart service to take effect
 
-Full reference in `backend/src/minicode/config.py`.
+### 2. Add New LLM Provider
 
----
+1. Inherit `BaseProvider` and implement generation & embedding methods
+2. Register provider in `main.py`
+3. Add corresponding API key and endpoint in config
 
-## API Endpoints
+### 3. Customize Frontend
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/` | Health check |
-| `GET` | `/ping` | Status probe |
-| `POST` | `/chat` | Send message (`mode`: `build`/`plan`, `rag`: `true`/`false`) |
-| `GET` | `/sessions` | List sessions, optional `?q=` keyword filter |
-| `GET` | `/sessions/search` | Search sessions (`?q=&semantic=true`) |
-| `POST` | `/sessions` | Save current conversation |
-| `GET` | `/sessions/{id}` | Load a saved session |
-| `DELETE` | `/sessions/{id}` | Delete a session |
+- Modify `App.vue` for layout adjustment
+- Extend `Chat.vue` to add new features
+- Customize theme styles
 
 ---
 
-## Project Structure
+## VIII. Design Philosophy
 
-```
-backend/src/minicode/
-├── main.py              # FastAPI app, routing, RAG integration
-├── config.py            # Environment config & agent limits
-├── core/                # Agent & Controller orchestration
-├── llm/                 # Provider clients, router, embedding
-├── memory/              # Conversation context management
-├── plan/                # Plan generator & step builder
-├── runtime/             # Step controller & execution guards
-├── tools/               # Auto-loaded tool implementations
-└── sessions/            # Session storage & RAG retriever
-
-frontend/vue/src/
-├── api/                 # API client (chat, sessions)
-├── components/          # Chat, Editor, Sidebar, FileTree
-└── stores/              # Reactive state (uiState, uiActions)
-```
-
----
-
-## Design Decisions
-
-- **File-based storage** — Sessions are JSON files. For a local single-user tool this avoids database setup, keeps data portable, and makes manual inspection trivial.
-- **API-based embeddings** — Rather than running a local embedding model (sentence-transformers), the system reuses the configured LLM provider's embedding endpoint. Zero additional dependencies.
-- **RAG injection at the prompt level** — Retrieved context is prepended to the user message before it enters the agent loop. No changes to the agent's internal memory model are needed.
-- **Scoped `withTimeout`** — All frontend API calls use `AbortController` with a 10-second timeout to prevent hanging requests when embedding or LLM calls stall.
+- **Minimalism**: Less dependencies, simpler configuration, lower learning cost
+- **Local-first**: Data localization, privacy as priority
+- **Tool-driven**: Focus on programming assistance rather than pure chat
+- **Extensibility**: Modular design for easy expansion of tools, LLMs and frontend
+- **Practicality**: Solve real programming problems instead of fancy features
 
 ---
 
