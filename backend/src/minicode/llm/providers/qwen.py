@@ -3,6 +3,9 @@ from minicode import config
 
 
 class QwenProvider(BaseProvider):
+    embed_model = "text-embedding-v3"
+    embed_endpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings"
+
     def __init__(
         self,
         api_key: str = config.QWEN_API_KEY,

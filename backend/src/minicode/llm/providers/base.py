@@ -3,6 +3,9 @@ import json
 
 
 class BaseProvider:
+    embed_model = None
+    embed_endpoint = None
+
     def __init__(
         self,
         api_key: str,
@@ -33,6 +36,23 @@ class BaseProvider:
 
     def _normalize_tool_calls(self, delta) -> list:
         raise NotImplementedError
+
+    def embed(self, text: str) -> list[float]:
+        if not self.embed_endpoint:
+            raise NotImplementedError(
+                f"{type(self).__name__} does not support embedding"
+            )
+
+        headers = self._build_headers()
+        payload = {"model": self.embed_model, "input": text}
+        resp = requests.post(
+            self.embed_endpoint,
+            headers=headers,
+            json=payload,
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()["data"][0]["embedding"]
 
     def generate_stream(self, messages, tools=None):
         tool_buffer: dict = {}

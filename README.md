@@ -1,169 +1,189 @@
-# Minicode
+# MiniCode
 
-MiniCode is a minimal AI coding assistant with a Vue frontend, a FastAPI backend, and a tool-driven agent loop that can plan, inspect, and modify code. It is designed to be lightweight, local-first, and easy to extend with additional tools or model providers.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
+[![Vue 3](https://img.shields.io/badge/vue-3.5-4fc08d.svg)](https://vuejs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.135+-009688.svg)](https://fastapi.tiangolo.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-## Project Description
+MiniCode is a lightweight, local-first AI coding assistant with streaming chat, a tool-driven agent loop, and **Retrieval-Augmented Generation (RAG)** for cross-session memory. It combines a Vue 3 frontend with a FastAPI backend and supports multiple LLM providers (Qwen, GLM, DeepSeek) with automatic failover.
 
-MiniCode combines three layers:
+---
 
-- a browser UI for chatting with the assistant and browsing the project tree
-- a backend agent that streams responses and tool activity over Server-Sent Events
-- a modular tool registry that loads file, repo, search, and system helpers at startup
+## Features
 
-The assistant can work in two modes:
+- **Streaming Chat** — Real-time token-by-token responses over Server-Sent Events.
+- **RAG-Powered Long-Term Memory** — Automatically embeds and indexes past conversations. Subsequent queries retrieve semantically relevant context across sessions without manual pasting.
+- **Dual Modes** — `build` mode with full tool access vs. `plan` mode with read-only safety.
+- **Multi-Provider Routing** — Configurable primary and fallback LLM providers (Qwen, GLM, DeepSeek). If the primary fails, the fallback takes over seamlessly.
+- **Extensible Tool System** — Tools are auto-discovered from the `tools/` package. Add a module and it becomes available to the agent.
+- **Code-First UI** — Built-in file tree browser, Monaco code editor, and streaming diff viewer.
+- **Zero Database** — All sessions, messages, and embeddings are stored as flat JSON files. No external vector database required — embeddings are served by the LLM provider's API.
 
-- `build`: full agent mode with the complete tool set available
-- `plan`: restricted mode that only exposes safe read-only tools
+> See [Design Decisions](#design-decisions) for rationale behind key architectural choices.
 
-## Characteristics
+---
 
-- Minimal architecture with a clear separation between UI, API, agent, and tools
-- Streaming chat responses for a responsive editing workflow
-- Model routing with primary and fallback providers
-- Extensible tool discovery through automatic package loading
-- Explicit limits on tool loops and agent steps to reduce runaway behavior
-- Built-in support for code reading, repo inspection, and filesystem operations
+## Architecture
 
-## Architecture And Workflow
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Vue 3 Frontend                           │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────────────┐  │
+│  │ FileTree │  │  Editor  │  │  Chat Panel              │  │
+│  │ Sidebar  │  │  Monaco  │  │  ┌────┐ ┌────┐ ┌──────┐│  │
+│  │          │  │          │  │  │User│ │Agent│ │RAG   ││  │
+│  │          │  │          │  │  │    │ │    │ │Toggle││  │
+│  └──────────┘  └──────────┘  │  └────┘ └────┘ └──────┘│  │
+│                               └──────────────────────────┘  │
+└──────────────────────┬──────────────────────────────────────┘
+                       │ POST /chat  (SSE stream)
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    FastAPI Backend                           │
+│                                                              │
+│  ┌─────────────┐    ┌──────────────┐    ┌────────────────┐  │
+│  │  /chat      │───▶│ Router       │───▶│ Agent           │  │
+│  │  /sessions  │    │ (primary /   │    │ (memory + tools)│  │
+│  │  /sessions/ │    │  fallback)   │    └────────────────┘  │
+│  │    search   │    └──────────────┘           │             │
+│  └──────┬──────┘                               │             │
+│         │                                      ▼             │
+│         │                               ┌────────────────┐  │
+│         │                               │ Plan Generator │  │
+│         │                               │ + Builder      │  │
+│         │                               └────────────────┘  │
+│         │                                      │             │
+│         ▼                                      ▼             │
+│  ┌──────────────┐                     ┌────────────────┐  │
+│  │ RAG Retriever│                    │ Tool Registry   │  │
+│  │ embed query  │                     │ + Runner        │  │
+│  │ → cosine sim │                     │ (read, write,   │  │
+│  │ → inject ctx │                     │  search, ...)   │  │
+│  └──────┬───────┘                    └────────────────┘  │
+│         │                                                  │
+│         ▼                                                  │
+│  ┌──────────────┐                                          │
+│  │  Sessions    │  (.minicode/sessions/*.json)             │
+│  │  + Embedding │  {meta, messages, embedding: [...]}      │
+│  └──────────────┘                                          │
+└─────────────────────────────────────────────────────────────┘
+```
 
-The runtime starts in `backend/src/minicode/main.py`, which builds the controller stack in this order:
+### RAG Flow
 
-1. Load all tool modules from `minicode.tools`.
-2. Create shared memory, tool registry, and tool runner instances.
-3. Configure model providers for Qwen, GLM, and DeepSeek.
-4. Route provider selection through `ModelRouter`.
-5. Create the agent, planner, and builder.
-6. Expose the FastAPI app with `/`, `/ping`, and `/chat` endpoints.
+1. User toggles `🧠 RAG` on in the chat panel.
+2. On each message, the backend embeds the query via the LLM provider's embedding API.
+3. Cosine similarity is computed against all saved session embeddings.
+4. The top-K matching sessions are retrieved and their raw messages are injected into the prompt.
+5. Retrieved messages are injected as plain text; raw embedding vectors are never sent to the model.
+6. The LLM responds with relevant context.
 
-The request flow is:
+---
 
-1. The frontend sends a chat message to `/chat`.
-2. The backend streams tokens, thinking events, tool calls, and tool results.
-3. The agent stores conversation state in memory and may call tools.
-4. The frontend renders the stream as it arrives.
+## Quick Start
 
-In `plan` mode, the agent filters the available tools to the allowlist defined in `backend/src/minicode/config.py`.
+### Prerequisites
 
-## Prerequisites
-
-- Python 3.10 or newer
-- Node.js 20.19+ or 22.12+
-- npm
-- Access to at least one supported model provider
-
-Optional but recommended environment variables for the backend:
-
-- `QWEN_API_KEY`
-- `QWEN_ENDPOINT`
-- `QWEN_MODEL`
-- `GLM_API_KEY`
-- `GLM_ENDPOINT`
-- `GLM_MODEL`
-- `DEEPSEEK_API_KEY`
-- `DEEPSEEK_ENDPOINT`
-- `DEEPSEEK_MODEL`
-- `PRIMARY_PROVIDER`
-- `FALLBACK_PROVIDER`
-
-## Installation Guide
+- Python 3.10+
+- Node.js 20+
+- An API key for at least one supported provider
 
 ### Backend
 
-From the `backend` directory:
-
 ```bash
+cd backend
 python3 -m venv .venv
 source .venv/bin/activate
-uv sync
+pip install -e .
+# Optional: create backend/.env with your API keys
 ```
-
-If you use a `.env` file, place it in `backend/.env`.
 
 ### Frontend
 
-From `frontend/Vue`:
-
 ```bash
+cd frontend/vue
 npm install
 ```
 
-## Usage Guide
-
-### Start The Backend
-
-```bash
-cd backend
-source .venv/bin/activate
-python start_api.py
-```
-
-The API listens on `http://127.0.0.1:8000`.
-
-### Start The Frontend
-
-```bash
-cd frontend/Vue
-npm run dev
-```
-
-The Vite dev server proxies `/chat` and `/ping` to the backend on port `8000`.
-
-### One-Click Launch (Recommended)
-
-After installing the backend (see below), run from any path:
+### Launch
 
 ```bash
 minicode
 ```
 
-This starts both the backend and frontend simultaneously and opens the browser automatically. Press `Ctrl+C` to stop both.
+After installing the backend with `pip install -e .`, the `minicode` CLI starts both the backend (port 8000) and frontend (port 5173) simultaneously and opens the browser.
 
-### One-Click Launch On macOS (Legacy)
+To start the backend alone:
 
-The root `start_api.sh` script opens separate Terminal windows for the frontend and backend. It uses `osascript`, so it is macOS-specific.
-
-### API Endpoints
-
-- `GET /` returns a basic health message
-- `GET /ping` returns `{"status":"ok"}`
-- `POST /chat` accepts `{ "message": "...", "mode": "build|plan" }` and streams SSE events
-
-## Agent Configurations
-
-The backend agent is configured in `backend/src/minicode/config.py` and `backend/src/minicode/main.py`.
-
-- Provider list: `qwen`, `glm`, `deepseek`
-- Provider routing: `PRIMARY_PROVIDER` and `FALLBACK_PROVIDER`
-- Step limit: `MAX_STEP = 4`
-- Tool loop limit: `MAX_TOOL_LOOP = 4`
-- Memory limit: `MEMORY_LIMIT = 50`
-- Memory file: `.memory.json`
-- Plan-mode safe tools: read-only search and repo inspection helpers only
-
-The tool system is loaded dynamically by walking `minicode.tools`, so adding a new tool module under that package is usually enough to make it available to the agent.
-
-## Limitations
-
-- The `start_api.sh` launcher script is macOS-only because it depends on `osascript`. The `minicode` CLI works on any platform.
-- The agent depends on external LLM endpoints and valid API credentials.
-- `plan` mode intentionally disables write-capable tools.
-- Conversation state is in-memory and limited by the configured memory cap.
-- Agent behavior is bounded by fixed step and tool-loop limits, so very long or multi-stage tasks may be truncated.
-- The frontend expects the backend to be running locally on port `8000`.
-
-## Repository Layout
-
-```text
-backend/
-	src/minicode/
-		main.py      # API entry point and FastAPI app
-		config.py    # environment config and agent limits
-		core/        # agent and controller orchestration
-		llm/         # providers, router, and client wrappers
-		memory/      # conversation context management
-		plan/        # planning and builder logic
-		runtime/     # step controller and execution guards
-		tools/       # tool registry, schemas, and implementations
-frontend/Vue/
-	src/          # Vue app, chat UI, editor, sidebar, and API client
+```bash
+python -m minicode.main
 ```
+
+---
+
+## Configuration
+
+Set these in `backend/.env` (or export as environment variables):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PRIMARY_PROVIDER` | `deepseek` | Primary LLM provider (`qwen`, `glm`, `deepseek`) |
+| `FALLBACK_PROVIDER` | `qwen` | Fallback on primary failure |
+| `EMBEDDING_PROVIDER` | `qwen` | Provider used for RAG embeddings (`qwen` or `glm`) |
+| `QWEN_API_KEY` | — | API key for Qwen |
+| `GLM_API_KEY` | — | API key for GLM |
+| `DEEPSEEK_API_KEY` | — | API key for DeepSeek |
+
+Full reference in `backend/src/minicode/config.py`.
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Health check |
+| `GET` | `/ping` | Status probe |
+| `POST` | `/chat` | Send message (`mode`: `build`/`plan`, `rag`: `true`/`false`) |
+| `GET` | `/sessions` | List sessions, optional `?q=` keyword filter |
+| `GET` | `/sessions/search` | Search sessions (`?q=&semantic=true`) |
+| `POST` | `/sessions` | Save current conversation |
+| `GET` | `/sessions/{id}` | Load a saved session |
+| `DELETE` | `/sessions/{id}` | Delete a session |
+
+---
+
+## Project Structure
+
+```
+backend/src/minicode/
+├── main.py              # FastAPI app, routing, RAG integration
+├── config.py            # Environment config & agent limits
+├── core/                # Agent & Controller orchestration
+├── llm/                 # Provider clients, router, embedding
+├── memory/              # Conversation context management
+├── plan/                # Plan generator & step builder
+├── runtime/             # Step controller & execution guards
+├── tools/               # Auto-loaded tool implementations
+└── sessions/            # Session storage & RAG retriever
+
+frontend/vue/src/
+├── api/                 # API client (chat, sessions)
+├── components/          # Chat, Editor, Sidebar, FileTree
+└── stores/              # Reactive state (uiState, uiActions)
+```
+
+---
+
+## Design Decisions
+
+- **File-based storage** — Sessions are JSON files. For a local single-user tool this avoids database setup, keeps data portable, and makes manual inspection trivial.
+- **API-based embeddings** — Rather than running a local embedding model (sentence-transformers), the system reuses the configured LLM provider's embedding endpoint. Zero additional dependencies.
+- **RAG injection at the prompt level** — Retrieved context is prepended to the user message before it enters the agent loop. No changes to the agent's internal memory model are needed.
+- **Scoped `withTimeout`** — All frontend API calls use `AbortController` with a 10-second timeout to prevent hanging requests when embedding or LLM calls stall.
+
+---
+
+## License
+
+MIT

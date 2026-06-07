@@ -27,15 +27,20 @@ from minicode.tools.loader import load_tools
 from minicode.tools.registry import get_registry
 from minicode.tools.runner import ToolRunner
 
-from minicode.sessions import save_session, list_sessions, get_session, delete_session
+from minicode.sessions import (
+    save_session_with_embedding,
+    list_sessions,
+    get_session,
+    delete_session,
+    search_semantic,
+    retrieve_context,
+)
 
 import json
 
 
-def _create_controller():
-    load_tools()
-
-    providers: dict[str, BaseProvider] = {
+def _create_providers() -> dict[str, BaseProvider]:
+    return {
         "qwen": QwenProvider(
             api_key=config.QWEN_API_KEY,
             model=config.QWEN_MODEL,
@@ -53,13 +58,19 @@ def _create_controller():
         ),
     }
 
+
+def _create_llm() -> ModelClient:
+    providers = _create_providers()
     router = ModelRouter(
         providers=providers,
         primary=config.PRIMARY_PROVIDER,
         fallback=config.FALLBACK_PROVIDER,
     )
+    return ModelClient(router)
 
-    llm = ModelClient(router)
+
+def _create_controller(llm: ModelClient) -> Controller:
+    load_tools()
 
     memory = Context()
     registry = get_registry()
@@ -77,9 +88,7 @@ def _create_controller():
     planner = PlanGenerator(llm, registry)
     plan_builder = Builder(runner)
 
-    controller = Controller(agent, planner, plan_builder)
-
-    return controller
+    return Controller(agent, planner, plan_builder)
 
 
 api = FastAPI(title="MiniCode API")
@@ -92,7 +101,8 @@ api.add_middleware(
     allow_headers=["*"],
 )
 
-controller = _create_controller()
+llm = _create_llm()
+controller = _create_controller(llm)
 
 
 @api.get("/")
@@ -105,14 +115,24 @@ async def chat(req: Request):
     data = await req.json()
     message = data.get("message", "")
     mode = data.get("mode", "build")
+    use_rag = data.get("rag", False)
     if mode not in ("build", "plan"):
         mode = "build"
 
     if not message.strip():
         return JSONResponse({"error": "Empty message"}, status_code=400)
 
+    rag_context = ""
+    if use_rag:
+        try:
+            rag_context = retrieve_context(llm, message)
+        except Exception as e:
+            print(f"[RAG] retrieve error: {e}")
+
+    enriched = f"{rag_context}\n\n用户问题：{message}" if rag_context else message
+
     def _event_stream():
-        for event in controller.chat_stream(message, mode):
+        for event in controller.chat_stream(enriched, mode):
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(_event_stream(), media_type="text/event-stream")
@@ -138,8 +158,16 @@ async def sessions_list(q: str = ""):
 
 @api.post("/sessions")
 async def sessions_save(body: SaveSessionRequest):
-    meta = save_session(body.title, body.messages)
+    meta = save_session_with_embedding(llm, body.title, body.messages)
     return meta
+
+
+@api.get("/sessions/search")
+async def sessions_search(q: str = "", semantic: bool = False):
+    if not semantic or not q.strip():
+        return list_sessions(query=q)
+    results = search_semantic(llm, q, top_k=5)
+    return results
 
 
 @api.get("/sessions/{session_id}")

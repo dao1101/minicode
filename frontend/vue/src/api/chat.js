@@ -1,8 +1,8 @@
-export async function streamChat(message, mode = 'build', onEvent) {
+export async function streamChat(message, mode = 'build', onEvent, rag = false) {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, mode })
+    body: JSON.stringify({ message, mode, rag })
   })
 
   if (!res.ok) {

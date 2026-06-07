@@ -3,6 +3,9 @@ from minicode import config
 
 
 class GLMProvider(BaseProvider):
+    embed_model = "embedding-3"
+    embed_endpoint = "https://open.bigmodel.cn/api/paas/v4/embeddings"
+
     def __init__(
         self,
         api_key: str = config.GLM_API_KEY,

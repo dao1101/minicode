@@ -10,6 +10,14 @@
       <button class="sb-btn" @click="showSessions = true" title="浏览历史会话">
         📂 历史
       </button>
+      <button
+        class="sb-btn"
+        :class="{ active: useRag }"
+        @click="useRag = !useRag"
+        title="启用 RAG 检索历史上下文"
+      >
+        🧠 RAG
+      </button>
       <span v-if="saveStatus" class="sb-status">{{ saveStatus }}</span>
     </div>
 
@@ -62,7 +70,7 @@
 <script setup>
 import { ref, nextTick } from 'vue'
 import { streamChat } from '../api/chat'
-import { saveSession, loadSession } from '../api/sessions'
+import { saveSession, loadSession, withTimeout } from '../api/sessions'
 import InputBox from './InputBox.vue'
 import SessionPanel from './SessionPanel.vue'
 import { uiState } from '../stores/uiState'
@@ -90,14 +98,6 @@ function mdToHtml(text) {
   if (!text) return ''
   try {
     const html = md.render(text)
-    if (import.meta.env.DEV) {
-      if (text.includes('&amp;') || text.includes('&lt;')) {
-        console.log('mdToHtml INPUT has entities:', JSON.stringify(text.slice(0, 200)))
-      }
-      if (html.includes('&amp;') || html.includes('&lt;')) {
-        console.log('mdToHtml OUTPUT has entities:', JSON.stringify(html.slice(0, 200)))
-      }
-    }
     return html
   } catch (e) {
     console.error('mdToHtml error:', e)
@@ -109,6 +109,7 @@ const messages = ref([])
 const messagesContainer = ref(null)
 const showSessions = ref(false)
 const saveStatus = ref('')
+const useRag = ref(false)
 
 function scrollToBottom() {
   nextTick(() => {
@@ -167,23 +168,27 @@ function newChat() {
 
 async function onSave() {
   if (!messages.value.length) return
+  const ctrl = withTimeout()
   try {
     const payload = messages.value
       .filter(m => m.role === 'user' || m.role === 'assistant')
       .map(m => ({ role: m.role, content: m.text }))
-    await saveSession('', payload)
+    await saveSession('', payload, ctrl.signal)
     saveStatus.value = '✓ 已保存'
     setTimeout(() => { saveStatus.value = '' }, 2000)
   } catch (e) {
     console.error('save session error:', e)
     saveStatus.value = '✗ 保存失败'
     setTimeout(() => { saveStatus.value = '' }, 2000)
+  } finally {
+    ctrl.cancel()
   }
 }
 
 async function onLoadSession(id) {
+  const ctrl = withTimeout()
   try {
-    const data = await loadSession(id)
+    const data = await loadSession(id, ctrl.signal)
     if (!data || !data.messages) return
     messages.value = data.messages.map(m => ({
       role: m.role,
@@ -195,6 +200,8 @@ async function onLoadSession(id) {
     nextTick(scrollToBottom)
   } catch (e) {
     console.error('load session error:', e)
+  } finally {
+    ctrl.cancel()
   }
 }
 
@@ -223,7 +230,7 @@ function handleSend(text) {
   streamChat(text, uiState.mode, (event) => {
     handleEvent(event, assistantIndex)
     scrollToBottom()
-  })
+  }, useRag.value)
 }
 
 function handleEvent(e, assistantIndex) {
@@ -233,9 +240,6 @@ function handleEvent(e, assistantIndex) {
   switch (e.type) {
     case 'token':
       msg.text += e.content
-      if (import.meta.env.DEV && (e.content.includes('&') || e.content.includes('<'))) {
-        console.log('TOKEN with entities:', JSON.stringify(e.content.slice(0, 100)))
-      }
       break
 
     case 'thinking':
@@ -287,11 +291,8 @@ function handleEvent(e, assistantIndex) {
       break
 
     case 'error':
-      msg.tools.push({
-        type: 'result',
-        name: 'Error',
-        content: typeof e.content === 'string' ? e.content : JSON.stringify(e.content)
-      })
+      const errorContent = typeof e.content === 'string' ? e.content : JSON.stringify(e.content)
+      msg.text = `❌ ${errorContent}`
       break
   }
 }
@@ -338,6 +339,11 @@ function handleEvent(e, assistantIndex) {
 .sb-btn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.sb-btn.active {
+  color: #22c55e;
+  border-color: #22c55e;
 }
 
 .sb-status {

@@ -18,3 +18,6 @@ class ModelRouter:
 
     def get_fallback(self) -> BaseProvider:
         return self.providers[self.fallback]
+
+    def get_provider(self, name: str) -> BaseProvider:
+        return self.providers[name]

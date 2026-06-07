@@ -14,6 +14,8 @@ def search_file(query: str, path: str = "."):
     results = []
 
     for p in Path(path).rglob("*"):
+        if p.name == ".DS_Store":
+            continue
         if query.lower() in p.name.lower():
             results.append(str(p))
 

@@ -3,6 +3,12 @@ from minicode import config
 
 
 class DeepSeekProvider(BaseProvider):
+    embed_model = None
+    embed_endpoint = None
+
+    def embed(self, text: str) -> list[float]:
+        raise NotImplementedError("DeepSeek does not provide an embedding API")
+
     def __init__(
         self,
         api_key: str = config.DEEPSEEK_API_KEY,

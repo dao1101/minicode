@@ -22,6 +22,7 @@ __all__ = [
     "DEEPSEEK_MODEL",
     "PRIMARY_PROVIDER",
     "FALLBACK_PROVIDER",
+    "EMBEDDING_PROVIDER",
     "PROVIDERS",
     "MAX_TOOL_LOOP",
     "MAX_STEP",
@@ -57,6 +58,7 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 
 PRIMARY_PROVIDER = os.getenv("PRIMARY_PROVIDER", "deepseek")
 FALLBACK_PROVIDER = os.getenv("FALLBACK_PROVIDER", "qwen")
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "qwen")
 
 # =========================
 # Agent Limits

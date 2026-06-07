@@ -8,6 +8,14 @@
         placeholder="🔍 搜索..."
         @input="onSearch"
       />
+      <button
+        class="sp-btn-mode"
+        :class="{ active: semantic }"
+        @click="semantic = !semantic; reload()"
+        title="语义搜索"
+      >
+        🔍⇄
+      </button>
       <button class="sp-close" @click="$emit('close')">✕</button>
     </div>
 
@@ -34,23 +42,30 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { fetchSessions, deleteSession } from '../api/sessions'
+import { fetchSessions, deleteSession, searchSessions, withTimeout } from '../api/sessions'
 
 const emit = defineEmits(['close', 'load'])
 
 const sessions = ref([])
 const query = ref('')
+const semantic = ref(false)
 const loading = ref(false)
 let debounceTimer = null
 
 async function reload() {
+  const ctrl = withTimeout()
   loading.value = true
   try {
-    sessions.value = await fetchSessions(query.value)
+    if (semantic.value && query.value) {
+      sessions.value = await searchSessions(query.value, true, ctrl.signal)
+    } else {
+      sessions.value = await fetchSessions(query.value, ctrl.signal)
+    }
   } catch (e) {
     console.error('load sessions error:', e)
   } finally {
     loading.value = false
+    ctrl.cancel()
   }
 }
 
@@ -63,11 +78,14 @@ onUnmounted(() => clearTimeout(debounceTimer))
 
 async function onDelete(id) {
   if (!confirm('确认删除这条会话？')) return
+  const ctrl = withTimeout()
   try {
-    await deleteSession(id)
+    await deleteSession(id, ctrl.signal)
     await reload()
   } catch (e) {
     console.error('delete session error:', e)
+  } finally {
+    ctrl.cancel()
   }
 }
 
@@ -135,6 +153,28 @@ onMounted(reload)
 
 .sp-close:hover {
   color: #e6edf3;
+}
+
+.sp-btn-mode {
+  background: none;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  line-height: 1.4;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sp-btn-mode:hover {
+  color: #e6edf3;
+  border-color: #58a6ff;
+}
+
+.sp-btn-mode.active {
+  color: #22c55e;
+  border-color: #22c55e;
 }
 
 .sp-list {

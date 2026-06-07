@@ -15,6 +15,8 @@ def list_dir(path: str = "."):
     files = []
 
     for item in p.iterdir():
+        if item.name == ".DS_Store":
+            continue
         if item.is_dir():
             files.append(f"[DIR] {item.name}")
         else:
