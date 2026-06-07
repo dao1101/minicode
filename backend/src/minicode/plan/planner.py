@@ -1,7 +1,7 @@
 import json
 import re
 from typing import List, Dict, Any
-from minicode.plan.schema import Plan, PlanStep, StepStatus
+from minicode.plan.steps import Plan, PlanStep, StepStatus
 from minicode.llm.client import ModelClient
 
 
@@ -11,11 +11,11 @@ class PlanGenerator:
         self.registry = registry
 
     def generate_plan(self, message: str) -> Plan:
-        system_prompt = """你是任务规划器。只允许返回 JSON 数组，不要解释，不要多余文字。
+        system_prompt = """You are a task planner. Only return a JSON array, no explanation, no extra text.
 
-格式：[{"tool": "xxx", "arguments": {...}}]
+Format: [{"tool": "xxx", "arguments": {...}}]
 
-可用的工具：read_file, write_file, list_dir, read_tree, grep, search_file, shell_run"""
+Available tools: read_file, write_file, list_dir, read_tree, grep, search_file, shell_run"""
 
         messages = [
             {"role": "system", "content": system_prompt},

@@ -15,10 +15,10 @@ def read_tree(path: str):
     root = Path(path)
 
     if not root.exists():
-        return "路径不存在"
+        return "Path not found"
 
     if not root.is_dir():
-        return "路径不是文件夹"
+        return "Path is not a directory"
 
     lines = []
     lines.append(f"{root.name}/")
@@ -31,7 +31,7 @@ def read_tree(path: str):
             return []
 
         # ✅ 核心：统一过滤
-        filtered = [c for c in children if not should_ignore(c)]
+        filtered = [c for c in children if not should_ignore(c, root)]
 
         return sorted(filtered, key=lambda x: x.name)
 

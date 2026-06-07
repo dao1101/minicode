@@ -1,5 +1,3 @@
-from typing import Optional, Dict, Any
-
 from minicode.core.agent import Agent
 from minicode.plan.planner import PlanGenerator
 from minicode.plan.builder import Builder
@@ -70,5 +68,20 @@ class Controller:
         yield from self.agent.chat_stream(user_input, mode)
 
     def _should_plan(self, text: str) -> bool:
-        keywords = ["步骤", "step", "先", "然后", "执行", "读取", "分析", "帮我", "请"]
+        keywords = [
+            "步骤",
+            "step",
+            "先",
+            "first",
+            "然后",
+            "then",
+            "执行",
+            "run",
+            "读取",
+            "read",
+            "分析",
+            "analyze",
+            "帮我",
+            "请",
+        ]
         return any(k in text for k in keywords)

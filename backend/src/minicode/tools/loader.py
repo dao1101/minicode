@@ -19,3 +19,5 @@ def load_tools():
         package.__path__, package_name + "."
     ):
         importlib.import_module(module_name)
+
+    print("All tools loaded")

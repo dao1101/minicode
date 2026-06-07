@@ -1,10 +1,10 @@
-from .schema import build_tool
-from .registry import register_tool
+from minicode.tools.schema import build_schema
+from minicode.tools.registry import register_tool
 
 
 def tool(func):
 
-    tool_def = build_tool(func)
+    tool_def = build_schema(func)
 
     register_tool(
         name=tool_def["name"],

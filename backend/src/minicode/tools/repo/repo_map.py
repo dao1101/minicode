@@ -62,11 +62,11 @@ def repo_map(path: str = "."):
 
     for file in sorted(root.rglob("*.py")):
         # ✅ 关键1：过滤文件本身
-        if should_ignore(file):
+        if should_ignore(file, root):
             continue
 
         # ✅ 关键2：过滤父目录（非常关键！）
-        if any(should_ignore(p) for p in file.parents):
+        if any(should_ignore(p, root) for p in file.parents):
             continue
 
         info = parse_file(file)

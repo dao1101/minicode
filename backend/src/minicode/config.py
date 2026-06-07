@@ -55,8 +55,8 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 # Router
 # =========================
 
-PRIMARY_PROVIDER = os.getenv("PRIMARY_PROVIDER", "qwen")
-FALLBACK_PROVIDER = os.getenv("FALLBACK_PROVIDER", "glm")
+PRIMARY_PROVIDER = os.getenv("PRIMARY_PROVIDER", "deepseek")
+FALLBACK_PROVIDER = os.getenv("FALLBACK_PROVIDER", "qwen")
 
 # =========================
 # Agent Limits

@@ -1,5 +1,5 @@
 import json
-from typing import List, Dict, Any
+
 from minicode.llm.client import ModelClient
 from minicode.memory.context import Context
 from minicode.memory.context import Messages
@@ -46,7 +46,7 @@ class Agent:
 
             tool_call = None
             text_parts = []
-
+             
             for chunk in response:
                 t = chunk.get("type")
 

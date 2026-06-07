@@ -1,10 +1,10 @@
 import inspect
 from typing import get_origin, get_args, Union, Literal
 
-from .docstring import parse_docstring
+from minicode.tools.docstring import parse_docstring
 
 
-def python_type_to_json(t):
+def _python_type_to_json(t):
 
     mapping = {
         str: "string",
@@ -16,14 +16,14 @@ def python_type_to_json(t):
     return mapping.get(t, "string")
 
 
-def resolve_type(annotation):
+def _resolve_type(annotation):
 
     origin = get_origin(annotation)
 
     if origin is list:
         item = get_args(annotation)[0]
 
-        return {"type": "array", "items": {"type": python_type_to_json(item)}}
+        return {"type": "array", "items": {"type": _python_type_to_json(item)}}
 
     if origin is Union:
         args = get_args(annotation)
@@ -31,17 +31,17 @@ def resolve_type(annotation):
         non_none = [a for a in args if a is not type(None)]
 
         if non_none:
-            return {"type": python_type_to_json(non_none[0])}
+            return {"type": _python_type_to_json(non_none[0])}
 
     if origin is Literal:
         values = get_args(annotation)
 
         return {"type": "string", "enum": list(values)}
 
-    return {"type": python_type_to_json(annotation)}
+    return {"type": _python_type_to_json(annotation)}
 
 
-def build_tool(func):
+def build_schema(func):
 
     sig = inspect.signature(func)
 
@@ -55,7 +55,7 @@ def build_tool(func):
             schema = {"type": "string"}
 
         else:
-            schema = resolve_type(param.annotation)
+            schema = _resolve_type(param.annotation)
 
         if name in param_docs:
             schema["description"] = param_docs[name]

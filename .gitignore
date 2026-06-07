@@ -1,11 +1,11 @@
 # Python Cache
-__pycache__/
+**/__pycache__/
 .ruff_cache/
 .pytest_cache/
 *.py[cod]
 
 # Virtual Environment
-.venv/
+**/.venv/
 
 # Runtime Memory
 .memory.json
@@ -13,17 +13,11 @@ __pycache__/
 # Environment Variables
 .env
 
-# IDE
-.vscode/
-
-# Build_Cache
+# Build Cache
 *.egg-info/
 
-# nul
-nul
-
-# Logs
-logs
+# Logs：任意目录logs文件夹全忽略
+**/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -31,38 +25,43 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+# Dependencies：所有子项目node_modules
+**/node_modules/
+
+# System
 .DS_Store
-dist
-dist-ssr
-coverage
+.git/
+
+# Build / Output：任意位置打包产物
+**/dist/
+**/dist-ssr/
+**/coverage/
 *.local
 
-# Editor directories and files
+# Editor
 .vscode/*
 !.vscode/extensions.json
-.idea
+**/.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
+# TS / Build
 *.tsbuildinfo
-
 .eslintcache
 
-# Cypress
+# Cypress：只根目录cypress下的目录不动
 /cypress/videos/
 /cypress/screenshots/
 
 # Vitest
-__screenshots__/
+**/__screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
 
-docs/
-tests/
-scripts/
-
+# 子目录有docs/tests也想忽略就加**/
+**/docs/
+**/tests/

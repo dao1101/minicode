@@ -1,38 +1,28 @@
 <template>
-  <div class="layout" :class="{ 'is-resizing': !!resizing }">
-    <!-- Topbar -->
+  <div class="layout" :class="{ 'is-resizing': !!resizing, 'chat-fullscreen': isChatFullscreen }">
     <div class="topbar">
       <div class="logo">MINICODE V1.12.5</div>
     </div>
 
-    <!-- 主内容区 -->
     <div class="main">
-      <!-- Sidebar -->
-      <div
-        class="sidebar"
-        :class="{ 'is-collapsed': isSidebarCollapsed }"
-        :style="{ width: isSidebarCollapsed ? COLLAPSED_WIDTH + 'px' : sidebarWidth + 'px' }"
-      >
-        <Sidebar v-show="!isSidebarCollapsed" />
-        <!-- 左侧折叠按钮 -->
-        <button class="toggle-btn left" @click="toggleSidebar">
-          {{ isSidebarCollapsed ? '▶' : '◀' }}
-        </button>
+      <div v-show="!isSidebarCollapsed" class="sidebar" :style="{ width: sidebarWidth + 'px' }">
+        <Sidebar />
+        <button class="toggle-btn left" @click="isSidebarCollapsed = true">◀</button>
       </div>
 
-      <!-- 左侧 resizer -->
       <div v-if="!isSidebarCollapsed" class="resizer" @mousedown="startLeftResize"></div>
 
-      <!-- Editor -->
-      <div class="editor" :style="{ width: editorWidth + 'px' }">
+      <div v-show="!isChatFullscreen" class="editor" :style="{ width: editorWidth + 'px' }">
         <Editor />
+        <button v-if="isSidebarCollapsed" class="toggle-btn expand-sidebar" @click="isSidebarCollapsed = false">▶</button>
+        <button class="toggle-btn collapse-editor" @click="isChatFullscreen = true">◀</button>
       </div>
 
-      <!-- Chat 固定宽度 360px -->
       <div class="chat-wrapper">
-        <div class="chat" :style="{ width: CHAT_WIDTH + 'px' }">
+        <div class="chat" :style="{ width: isChatFullscreen ? '100%' : CHAT_WIDTH + 'px' }">
           <Chat />
         </div>
+        <button v-if="isChatFullscreen" class="toggle-btn restore" @click="isChatFullscreen = false">▶</button>
       </div>
     </div>
   </div>
@@ -44,39 +34,28 @@ import Sidebar from './components/Sidebar.vue'
 import Editor from './components/Editor.vue'
 import Chat from './components/Chat.vue'
 
-// 基础配置
 const MIN_SIDEBAR = 180
 const MIN_EDITOR = 200
-const COLLAPSED_WIDTH = 60
-const CHAT_WIDTH = 360 // 固定宽度
+const CHAT_WIDTH = 360
 
-// 状态
 const sidebarWidth = ref(Number(localStorage.getItem('sidebarWidth')) || 260)
 const editorWidth = ref(0)
 const isSidebarCollapsed = ref(false)
+const isChatFullscreen = ref(false)
 const resizing = ref(null)
 
-// 保存 Sidebar 宽度
 watch(sidebarWidth, () => {
   localStorage.setItem('sidebarWidth', sidebarWidth.value)
 })
 
-// 左侧折叠/展开
-function toggleSidebar() {
-  isSidebarCollapsed.value = !isSidebarCollapsed.value
-  updateEditorWidth()
-}
-
-// 计算 Editor 宽度
 function updateEditorWidth() {
-  const activeSidebarWidth = isSidebarCollapsed.value ? COLLAPSED_WIDTH : sidebarWidth.value
+  const activeSidebarWidth = isSidebarCollapsed.value ? 0 : sidebarWidth.value
   editorWidth.value = Math.max(
     MIN_EDITOR,
-    window.innerWidth - activeSidebarWidth - CHAT_WIDTH - 6 // 6px 左 resizer
+    window.innerWidth - activeSidebarWidth - CHAT_WIDTH - 6
   )
 }
 
-// 拖拽逻辑（只针对左侧 Sidebar）
 function onMouseMove(e) {
   if (!resizing.value) return
   const maxAllowed = window.innerWidth - CHAT_WIDTH - MIN_EDITOR
@@ -102,7 +81,6 @@ function initListeners() {
   window.addEventListener('mouseup', stopResize)
 }
 
-// 窗口大小变化时同步 Editor
 onMounted(() => {
   updateEditorWidth()
   window.addEventListener('resize', updateEditorWidth)
@@ -134,7 +112,7 @@ onUnmounted(() => {
 }
 
 .logo {
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 1px;
   color: #58a6ff;
@@ -177,7 +155,6 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-/* 左侧 resizer */
 .resizer {
   width: 3px;
   cursor: col-resize;
@@ -198,23 +175,38 @@ onUnmounted(() => {
   background: rgba(88,166,255,0.2);
 }
 
-/* 拖拽中蓝色高亮 */
 body.is-resizing .resizer {
   background: rgba(88,166,255,0.4);
 }
 
-/* 按钮样式 */
+.chat-fullscreen .sidebar,
+.chat-fullscreen .resizer,
+.chat-fullscreen .editor {
+  display: none;
+}
+.chat-fullscreen .chat-wrapper {
+  flex: 1;
+}
+
 .toggle-btn {
   position: absolute;
-  bottom: 10px;
+  bottom: 12px;
   z-index: 20;
-  background: #21262d;
-  border: 1px solid #30363d;
   color: white;
   cursor: pointer;
   padding: 1px 2px;
   border-radius: 3px;
   font-size: 10px;
+  border: none;
 }
-.toggle-btn.left { right: 10px; }
+.toggle-btn.left { right: 10px; background: #0f1117; }
+.toggle-btn.expand-sidebar { left: 10px; background: #1a1c24; }
+.toggle-btn.collapse-editor { right: 10px; background: #1a1c24; }
+.toggle-btn.restore { left: 4px; background: #151822; }
+</style>
+
+<style>
+.chat-fullscreen .chat-panel {
+  width: 100% !important;
+}
 </style>

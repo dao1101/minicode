@@ -28,13 +28,13 @@ def read_repo(path: str):
         current_path = Path(current_root)
 
         # ✅ 关键修复：目录过滤（必须用 should_ignore）
-        dirs[:] = [d for d in dirs if not should_ignore(current_path / d)]
+        dirs[:] = [d for d in dirs if not should_ignore(current_path / d, root)]
 
         for file in files:
             file_path = current_path / file
 
             # ✅ 文件也要过滤（你之前漏了！）
-            if should_ignore(file_path):
+            if should_ignore(file_path, root):
                 continue
 
             # 扩展名过滤

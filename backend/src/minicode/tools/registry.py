@@ -3,7 +3,6 @@ class ToolRegistry:
         self.tools = {}
 
     def register(self, name, description, schema, func):
-        print(f"[REGISTER TOOL] {name}")
         self.tools[name] = {
             "name": name,
             "description": description,
@@ -34,8 +33,10 @@ class ToolRegistry:
 
 _registry = ToolRegistry()
 
+
 def register_tool(name, description, schema, func):
     _registry.register(name, description, schema, func)
+
 
 def get_registry():
     return _registry

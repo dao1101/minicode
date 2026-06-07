@@ -1,5 +1,26 @@
 <template>
   <div class="chat-panel">
+
+    <!-- 会话工具栏 -->
+    <div class="session-bar">
+      <button class="sb-btn" @click="newChat" title="清空开始新对话">＋ 新建</button>
+      <button class="sb-btn" @click="onSave" title="保存当前会话" :disabled="!messages.length">
+        💾 保存
+      </button>
+      <button class="sb-btn" @click="showSessions = true" title="浏览历史会话">
+        📂 历史
+      </button>
+      <span v-if="saveStatus" class="sb-status">{{ saveStatus }}</span>
+    </div>
+
+    <!-- 会话历史面板（覆盖） -->
+    <SessionPanel
+      v-if="showSessions"
+      @close="showSessions = false"
+      @load="onLoadSession"
+    />
+
+    <!-- 消息列表 -->
     <div class="messages" ref="messagesContainer">
       <div
         v-for="(m, i) in messages"
@@ -8,13 +29,13 @@
         :class="m.role"
         :style="m.role === 'user' ? { '--msg-border': uiState.mode === 'plan' ? '#a371f7' : '#58a6ff' } : {}"
       >
-        <div v-if="m.role !== 'user'" class="role-label">ASSISTANT：</div>
+        <div v-if="m.role !== 'user'" class="role-label">Agent：</div>
 
         <div class="content-bubble" :class="m.role === 'user' ? 'user-bubble' : ''">
           <div v-if="m.text" class="text" v-html="mdToHtml(m.text)"></div>
 
           <div v-if="m.thinking" class="thinking">
-            🧠 {{ m.thinking }}
+            {{ m.thinking }}
           </div>
 
           <div v-if="m.tools && m.tools.length" class="tools">
@@ -41,7 +62,9 @@
 <script setup>
 import { ref, nextTick } from 'vue'
 import { streamChat } from '../api/chat'
+import { saveSession, loadSession } from '../api/sessions'
 import InputBox from './InputBox.vue'
+import SessionPanel from './SessionPanel.vue'
 import { uiState } from '../stores/uiState'
 import { uiActions } from '../stores/uiActions'
 import MarkdownIt from 'markdown-it'
@@ -66,12 +89,14 @@ const md = new MarkdownIt({
 function mdToHtml(text) {
   if (!text) return ''
   try {
-    if (text.includes('&amp;') || text.includes('&lt;')) {
-      console.log('mdToHtml INPUT has entities:', JSON.stringify(text.slice(0, 200)))
-    }
     const html = md.render(text)
-    if (html.includes('&amp;') || html.includes('&lt;')) {
-      console.log('mdToHtml OUTPUT has entities:', JSON.stringify(html.slice(0, 200)))
+    if (import.meta.env.DEV) {
+      if (text.includes('&amp;') || text.includes('&lt;')) {
+        console.log('mdToHtml INPUT has entities:', JSON.stringify(text.slice(0, 200)))
+      }
+      if (html.includes('&amp;') || html.includes('&lt;')) {
+        console.log('mdToHtml OUTPUT has entities:', JSON.stringify(html.slice(0, 200)))
+      }
     }
     return html
   } catch (e) {
@@ -82,6 +107,8 @@ function mdToHtml(text) {
 
 const messages = ref([])
 const messagesContainer = ref(null)
+const showSessions = ref(false)
+const saveStatus = ref('')
 
 function scrollToBottom() {
   nextTick(() => {
@@ -93,7 +120,7 @@ function scrollToBottom() {
 }
 
 function setupCopyButtons() {
-  document.querySelectorAll('.text pre').forEach(pre => {
+  document.querySelectorAll('.text pre, .tool-pre').forEach(pre => {
     if (pre.querySelector('.copy-btn')) return
     pre.style.position = 'relative'
     const btn = document.createElement('button')
@@ -117,9 +144,8 @@ function setupCopyButtons() {
     btn.addEventListener('mouseenter', () => { btn.style.opacity = '1' })
     btn.addEventListener('mouseleave', () => { btn.style.opacity = '0.6' })
     btn.addEventListener('click', async () => {
-      const code = pre.querySelector('code')
-      if (!code) return
       try {
+        const code = pre.querySelector('code') || pre
         await navigator.clipboard.writeText(code.textContent || '')
         btn.textContent = '✓'
         setTimeout(() => { btn.textContent = '📋' }, 2000)
@@ -131,6 +157,48 @@ function setupCopyButtons() {
     pre.appendChild(btn)
   })
 }
+
+// ─── Session actions ──────────────────────────────────────────────────────────
+
+function newChat() {
+  if (messages.value.length && !confirm('清空当前对话？未保存内容将丢失。')) return
+  messages.value = []
+}
+
+async function onSave() {
+  if (!messages.value.length) return
+  try {
+    const payload = messages.value
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({ role: m.role, content: m.text }))
+    await saveSession('', payload)
+    saveStatus.value = '✓ 已保存'
+    setTimeout(() => { saveStatus.value = '' }, 2000)
+  } catch (e) {
+    console.error('save session error:', e)
+    saveStatus.value = '✗ 保存失败'
+    setTimeout(() => { saveStatus.value = '' }, 2000)
+  }
+}
+
+async function onLoadSession(id) {
+  try {
+    const data = await loadSession(id)
+    if (!data || !data.messages) return
+    messages.value = data.messages.map(m => ({
+      role: m.role,
+      text: m.content || '',
+      thinking: '',
+      tools: []
+    }))
+    showSessions.value = false
+    nextTick(scrollToBottom)
+  } catch (e) {
+    console.error('load session error:', e)
+  }
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
 
 function handleSend(text) {
   messages.value.push({
@@ -165,7 +233,7 @@ function handleEvent(e, assistantIndex) {
   switch (e.type) {
     case 'token':
       msg.text += e.content
-      if (e.content.includes('&') || e.content.includes('<')) {
+      if (import.meta.env.DEV && (e.content.includes('&') || e.content.includes('<'))) {
         console.log('TOKEN with entities:', JSON.stringify(e.content.slice(0, 100)))
       }
       break
@@ -238,8 +306,47 @@ function handleEvent(e, assistantIndex) {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  position: relative;
 }
 
+/* ── Session bar ── */
+.session-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-bottom: 1px solid #21262d;
+  flex-shrink: 0;
+}
+
+.sb-btn {
+  background: #1a1c24;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 8px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sb-btn:hover:not(:disabled) {
+  color: #e6edf3;
+  border-color: #58a6ff;
+}
+
+.sb-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sb-status {
+  font-size: 11px;
+  color: #22c55e;
+  margin-left: 4px;
+}
+
+/* ── Messages ── */
 .messages {
   flex: 1;
   overflow-y: auto;
@@ -340,147 +447,88 @@ function handleEvent(e, assistantIndex) {
 .text :deep(h1) { font-size: 16px; }
 .text :deep(h2) { font-size: 15px; }
 .text :deep(h3) { font-size: 14px; }
-.text :deep(p) { margin: 4px 0; }
-.text :deep(ul),
-.text :deep(ol) { padding-left: 20px; margin: 4px 0; }
-.text :deep(li) { margin: 2px 0; }
-.text :deep(code) {
-  background: #1a1d2e;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 12px;
-  color: #f97583;
+.text :deep(h4) { font-size: 13px; }
+
+.text :deep(p) {
+  margin: 0 0 6px;
 }
+
 .text :deep(pre) {
-  background: #0d1117;
-  padding: 12px;
+  background: #0f1117;
   border-radius: 6px;
+  padding: 10px 12px;
   overflow-x: auto;
-  margin: 8px 0;
-  line-height: 1.45;
-  position: relative;
+  font-size: 12px;
+  margin: 6px 0;
 }
 
-:global(.copy-btn) {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  background: #1a1d2e;
-  border: 1px solid #30363d;
-  border-radius: 4px;
-  color: #8b949e;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px 6px;
-  line-height: 1.4;
-  opacity: 0;
-  transition: opacity 0.15s;
-  z-index: 1;
+.text :deep(code) {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
 }
 
-:global(.copy-btn:hover) {
-  background: #30363d;
-  color: #e6edf3;
+.text :deep(ul), .text :deep(ol) {
+  padding-left: 18px;
+  margin: 4px 0;
 }
-.text :deep(pre code) {
-  background: none;
-  padding: 0;
-  color: inherit;
-  font-size: 12px;
+
+.text :deep(li) {
+  margin: 2px 0;
 }
-.text :deep(.hljs) { color: #c9d1d9; }
-.text :deep(.hljs-keyword) { color: #ff7b72; }
-.text :deep(.hljs-number) { color: #79c0ff; }
-.text :deep(.hljs-built_in) { color: #ffa657; }
-.text :deep(.hljs-string) { color: #a5d6ff; }
-.text :deep(.hljs-comment) { color: #8b949e; font-style: italic; }
-.text :deep(.hljs-function) { color: #d2a8ff; }
-.text :deep(.hljs-title) { color: #d2a8ff; }
-.text :deep(.hljs-params) { color: #c9d1d9; }
-.text :deep(.hljs-attr) { color: #79c0ff; }
-.text :deep(.hljs-attribute) { color: #79c0ff; }
-.text :deep(strong) { font-weight: 600; }
-.text :deep(a) { color: #58a6ff; }
+
+.text :deep(a) {
+  color: #58a6ff;
+}
+
 .text :deep(blockquote) {
   border-left: 3px solid #30363d;
   padding-left: 10px;
   color: #8b949e;
   margin: 6px 0;
 }
+
 .text :deep(table) {
   border-collapse: collapse;
-  width: 100%;
-  margin: 6px 0;
   font-size: 12px;
 }
-.text :deep(th),
-.text :deep(td) {
+
+.text :deep(th), .text :deep(td) {
   border: 1px solid #30363d;
   padding: 4px 8px;
-  text-align: left;
 }
-.text :deep(th) { background: #161b22; }
 
-.tool-result :deep(p) { margin: 2px 0; }
-.tool-result :deep(table) { width: 100%; border-collapse: collapse; }
-.tool-result :deep(ul),
-.tool-result :deep(ol) { padding-left: 18px; margin: 2px 0; }
-.tool-result :deep(code) {
-  background: #1a1d2e;
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-size: 11px;
-  color: #f97583;
-}
-.tool-result :deep(pre) {
-  background: #0d1117;
-  padding: 8px;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 4px 0;
-}
-.tool-result :deep(pre code) {
-  background: none;
-  padding: 0;
-  color: inherit;
-}
 .tool-pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #8b949e;
   margin: 0;
   font-size: 11px;
-  line-height: 1.5;
-  white-space: pre;
-  word-break: keep-all;
-  overflow-x: auto;
-  color: #34d399;
-  background: none;
-  border: none;
-  padding: 0;
-}
-.tool-result :deep(strong) { font-weight: 600; }
-.tool-result :deep(a) { color: #58a6ff; }
-.tool-result :deep(blockquote) {
-  border-left: 2px solid #30363d;
-  padding-left: 8px;
-  color: #8b949e;
-  margin: 4px 0;
-}
-.tool-result :deep(.hljs) { color: #c9d1d9; }
-.tool-result :deep(.hljs-keyword) { color: #ff7b72; }
-.tool-result :deep(.hljs-number) { color: #79c0ff; }
-.tool-result :deep(.hljs-built_in) { color: #ffa657; }
-.tool-result :deep(.hljs-string) { color: #a5d6ff; }
-.tool-result :deep(.hljs-comment) { color: #8b949e; font-style: italic; }
-.tool-result :deep(.hljs-function) { color: #d2a8ff; }
-.tool-result :deep(.hljs-title) { color: #d2a8ff; }
-
-.tool-result {
-  color: #34d399;
-  background: #0f1117;
-  padding: 8px 10px;
-  border-radius: 4px;
-  max-height: 300px;
+  font-family: monospace;
+  max-height: 200px;
   overflow-y: auto;
-  word-break: break-word;
-  line-height: 1.5;
 }
+
+/* ── highlight.js token colors ── */
+.text :deep(.hljs) { background: #0f1117; color: #e6edf3; }
+.text :deep(.hljs-keyword),
+.text :deep(.hljs-selector-tag),
+.text :deep(.hljs-built_in) { color: #ff7b72; }
+.text :deep(.hljs-string),
+.text :deep(.hljs-attr),
+.text :deep(.hljs-template-variable) { color: #a5d6ff; }
+.text :deep(.hljs-number),
+.text :deep(.hljs-literal) { color: #79c0ff; }
+.text :deep(.hljs-comment),
+.text :deep(.hljs-quote) { color: #8b949e; font-style: italic; }
+.text :deep(.hljs-function),
+.text :deep(.hljs-title) { color: #d2a8ff; }
+.text :deep(.hljs-variable),
+.text :deep(.hljs-params) { color: #ffa657; }
+.text :deep(.hljs-class .hljs-title),
+.text :deep(.hljs-type) { color: #ffa657; }
+.text :deep(.hljs-meta) { color: #79c0ff; }
+.text :deep(.hljs-tag) { color: #7ee787; }
+.text :deep(.hljs-name) { color: #7ee787; }
+.text :deep(.hljs-property) { color: #79c0ff; }
+.text :deep(.hljs-operator),
+.text :deep(.hljs-punctuation) { color: #e6edf3; }
 </style>

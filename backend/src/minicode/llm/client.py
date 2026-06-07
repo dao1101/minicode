@@ -1,7 +1,7 @@
-from minicode.llm.providers.qwen import QwenProvider
-from minicode.llm.providers.glm import GLMProvider
+from minicode.llm.providers.base import BaseProvider
 from minicode.llm.router import ModelRouter
 from minicode.memory.context import Messages
+
 
 class ModelClient:
     def __init__(self, router: ModelRouter):
@@ -11,7 +11,7 @@ class ModelClient:
         return self._generate_stream(messages, tools)
 
     def _generate_stream(self, messages: Messages, tools=None):
-        provider: QwenProvider | GLMProvider = self.router.get_primary()
+        provider: BaseProvider = self.router.get_primary()
         print(f"[ModelClient] Using provider: {provider}")
 
         try:

@@ -1,13 +1,11 @@
 from minicode import config
-from minicode.llm.providers.qwen import QwenProvider
-from minicode.llm.providers.glm import GLMProvider
-from minicode.llm.providers.deepseek import DeepSeekProvider
+from minicode.llm.providers.base import BaseProvider
 
 
 class ModelRouter:
     def __init__(
         self,
-        providers: dict[str, QwenProvider | GLMProvider | DeepSeekProvider],
+        providers: dict[str, BaseProvider],
         primary=config.PRIMARY_PROVIDER,
         fallback=config.FALLBACK_PROVIDER,
     ):
@@ -15,8 +13,8 @@ class ModelRouter:
         self.primary = primary
         self.fallback = fallback
 
-    def get_primary(self) -> QwenProvider | GLMProvider | DeepSeekProvider:
+    def get_primary(self) -> BaseProvider:
         return self.providers[self.primary]
 
-    def get_fallback(self) -> QwenProvider | GLMProvider | DeepSeekProvider:
+    def get_fallback(self) -> BaseProvider:
         return self.providers[self.fallback]

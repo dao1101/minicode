@@ -112,6 +112,10 @@ textarea::-webkit-scrollbar-track {
   font-size: 11px;
 }
 
+:global(.chat-fullscreen) .input-hint {
+  padding-left: 11px;
+}
+
 .mode-hint {
   font-weight: 600;
   padding: 2px 8px;
