@@ -28,44 +28,44 @@ MiniCode is a lightweight, local-first AI coding assistant with streaming chat, 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Vue 3 Frontend                           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────────────┐  │
-│  │ FileTree │  │  Editor  │  │  Chat Panel              │  │
-│  │ Sidebar  │  │  Monaco  │  │  ┌────┐ ┌────┐ ┌──────┐│  │
-│  │          │  │          │  │  │User│ │Agent│ │RAG   ││  │
-│  │          │  │          │  │  │    │ │    │ │Toggle││  │
-│  └──────────┘  └──────────┘  │  └────┘ └────┘ └──────┘│  │
-│                               └──────────────────────────┘  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────────────┐   │
+│  │ FileTree │  │  Editor  │  │  Chat Panel              │   │
+│  │ Sidebar  │  │  Monaco  │  │  ┌────┐ ┌─────┐ ┌──────┐ │   │
+│  │          │  │          │  │  │User│ │Agent│ │RAG   │ │   │
+│  │          │  │          │  │  │    │ │     │ │Toggle│ │   │
+│  └──────────┘  └──────────┘  │  └────┘ └─────┘ └──────┘ │   │
+│                              └──────────────────────────┘   │
 └──────────────────────┬──────────────────────────────────────┘
                        │ POST /chat  (SSE stream)
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    FastAPI Backend                           │
-│                                                              │
+│                    FastAPI Backend                          │
+│                                                             │
 │  ┌─────────────┐    ┌──────────────┐    ┌────────────────┐  │
-│  │  /chat      │───▶│ Router       │───▶│ Agent           │  │
-│  │  /sessions  │    │ (primary /   │    │ (memory + tools)│  │
+│  │  /chat      │───▶│ Router       │───▶│ Agent          │  │
+│  │  /sessions  │    │ (primary /   │    │(memory + tools)│  │
 │  │  /sessions/ │    │  fallback)   │    └────────────────┘  │
-│  │    search   │    └──────────────┘           │             │
-│  └──────┬──────┘                               │             │
-│         │                                      ▼             │
+│  │    search   │    └──────────────┘           │            │
+│  └──────┬──────┘                               │            │
+│         │                                      ▼            │
 │         │                               ┌────────────────┐  │
 │         │                               │ Plan Generator │  │
 │         │                               │ + Builder      │  │
 │         │                               └────────────────┘  │
-│         │                                      │             │
-│         ▼                                      ▼             │
-│  ┌──────────────┐                     ┌────────────────┐  │
-│  │ RAG Retriever│                    │ Tool Registry   │  │
-│  │ embed query  │                     │ + Runner        │  │
-│  │ → cosine sim │                     │ (read, write,   │  │
-│  │ → inject ctx │                     │  search, ...)   │  │
-│  └──────┬───────┘                    └────────────────┘  │
-│         │                                                  │
-│         ▼                                                  │
-│  ┌──────────────┐                                          │
-│  │  Sessions    │  (.minicode/sessions/*.json)             │
-│  │  + Embedding │  {meta, messages, embedding: [...]}      │
-│  └──────────────┘                                          │
+│         │                                      │            │
+│         ▼                                      ▼            │
+│  ┌──────────────┐                       ┌────────────────┐  │
+│  │ RAG Retriever│                       │ Tool Registry  │  │
+│  │ embed query  │                       │ + Runner       │  │
+│  │ → cosine sim │                       │ (read, write,  │  │
+│  │ → inject ctx │                       │  search, ...)  │  │
+│  └──────┬───────┘                       └────────────────┘  │
+│         │                                                   │
+│         ▼                                                   │
+│  ┌──────────────┐                                           │
+│  │  Sessions    │  (.minicode/sessions/\*.json)             │
+│  │  + Embedding │  {meta, messages, embedding: \[...]}      │
+│  └──────────────┘                                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
