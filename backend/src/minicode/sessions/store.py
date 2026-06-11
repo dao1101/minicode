@@ -11,7 +11,7 @@ def _sessions_dir() -> Path:
     custom = os.getenv("MINICODE_SESSIONS_DIR")
     if custom:
         return Path(custom)
-    return Path.home() / ".minicode" / "sessions"
+    return Path(__file__).resolve().parent.parent.parent.parent / ".session"
 
 
 SESSIONS_DIR = _sessions_dir()

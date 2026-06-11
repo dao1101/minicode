@@ -14,6 +14,10 @@ __all__ = [
     "QWEN_ENDPOINT",
     "QWEN_API_KEY",
     "QWEN_MODEL",
+    "QWEN_EMBED_ENDPOINT",
+    "QWEN_EMBED_MODEL",
+    "GLM_EMBED_ENDPOINT",
+    "GLM_EMBED_MODEL",
     "GLM_ENDPOINT",
     "GLM_API_KEY",
     "GLM_MODEL",
@@ -41,15 +45,20 @@ QWEN_ENDPOINT = os.getenv("QWEN_ENDPOINT", "")
 QWEN_API_KEY = os.getenv("QWEN_API_KEY", "")
 QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen-plus")
 
+QWEN_EMBED_ENDPOINT = os.getenv("QWEN_EMBED_ENDPOINT", "")
+QWEN_EMBED_MODEL = os.getenv("QWEN_EMBED_MODEL", "text-embedding-v3")
 
 GLM_ENDPOINT = os.getenv("GLM_ENDPOINT", "")
 GLM_API_KEY = os.getenv("GLM_API_KEY", "")
 GLM_MODEL = os.getenv("GLM_MODEL", "glm-4")
 
+GLM_EMBED_ENDPOINT = os.getenv("GLM_EMBED_ENDPOINT", "")
+GLM_EMBED_MODEL = os.getenv("GLM_EMBED_MODEL", "embedding-3")
+
 
 DEEPSEEK_ENDPOINT = os.getenv("DEEPSEEK_ENDPOINT", "")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
 
 # =========================
@@ -89,4 +98,6 @@ SAFE_TOOLS = {
     "search_file",
     "search_symbol",
     "list_dir",
+    "web_search",
+    "web_fetch",
 }

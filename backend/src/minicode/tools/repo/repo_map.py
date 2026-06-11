@@ -1,3 +1,4 @@
+import os
 import ast
 from pathlib import Path
 from minicode.tools.decorator import tool
@@ -58,48 +59,58 @@ def repo_map(path: str = "."):
     lines = ["REPO MAP", "========", ""]
 
     count = 0
-    MAX_FILES = 200  # 防止爆炸
+    MAX_FILES = 200
 
-    for file in sorted(root.rglob("*.py")):
-        # ✅ 关键1：过滤文件本身
-        if should_ignore(file, root):
-            continue
+    for current_root, dirs, files in os.walk(root):
+        current = Path(current_root)
 
-        # ✅ 关键2：过滤父目录（非常关键！）
-        if any(should_ignore(p, root) for p in file.parents):
-            continue
+        try:
+            dirs[:] = [d for d in dirs if not should_ignore(current / d, root)]
+        except Exception:
+            pass
 
-        info = parse_file(file)
+        for name in files:
+            if not name.endswith(".py"):
+                continue
 
-        if not info:
-            continue
+            file_path = current / name
+            try:
+                if should_ignore(file_path, root):
+                    continue
+            except Exception:
+                continue
 
-        lines.append(str(file))
+            info = parse_file(file_path)
 
-        if info["imports"]:
+            if not info:
+                continue
+
+            lines.append(str(file_path))
+
+            if info["imports"]:
+                lines.append("")
+                lines.append("imports:")
+
+                for imp in info["imports"]:
+                    lines.append(f"  {imp}")
+
+            for cls, methods in info["classes"]:
+                lines.append("")
+                lines.append(f"class {cls}")
+
+                for m in methods:
+                    lines.append(f"  {m}")
+
+            for func in info["functions"]:
+                lines.append("")
+                lines.append(f"function {func}")
+
             lines.append("")
-            lines.append("imports:")
-
-            for imp in info["imports"]:
-                lines.append(f"  {imp}")
-
-        for cls, methods in info["classes"]:
             lines.append("")
-            lines.append(f"class {cls}")
 
-            for m in methods:
-                lines.append(f"  {m}")
-
-        for func in info["functions"]:
-            lines.append("")
-            lines.append(f"function {func}")
-
-        lines.append("")
-        lines.append("")
-
-        count += 1
-        if count >= MAX_FILES:
-            lines.append("# TRUNCATED: too many files")
-            break
+            count += 1
+            if count >= MAX_FILES:
+                lines.append("# TRUNCATED: too many files")
+                return "\n".join(lines)
 
     return "\n".join(lines)

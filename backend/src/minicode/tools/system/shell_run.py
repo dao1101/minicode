@@ -10,6 +10,6 @@ def shell_run(cmd: str):
     cmd: shell command
     """
 
-    result = subprocess.run(cmd, shell=True, capture_output=True, encoding="utf-8", timeout=30)
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
     return result.stdout + result.stderr

@@ -1,4 +1,3 @@
-from minicode import config
 from minicode.llm.providers.base import BaseProvider
 from minicode.llm.router import ModelRouter
 from minicode.memory.context import Messages
@@ -12,7 +11,7 @@ class ModelClient:
         return self._generate_stream(messages, tools)
 
     def embed(self, text: str) -> list[float]:
-        return self.router.get_provider(config.EMBEDDING_PROVIDER).embed(text)
+        return self.router.get_embed().embed(text)
 
     def _generate_stream(self, messages: Messages, tools=None):
         provider: BaseProvider = self.router.get_primary()

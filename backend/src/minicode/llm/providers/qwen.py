@@ -3,8 +3,8 @@ from minicode import config
 
 
 class QwenProvider(BaseProvider):
-    embed_model = "text-embedding-v3"
-    embed_endpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings"
+    embed_model = config.QWEN_EMBED_MODEL
+    embed_endpoint = config.QWEN_EMBED_ENDPOINT
 
     def __init__(
         self,

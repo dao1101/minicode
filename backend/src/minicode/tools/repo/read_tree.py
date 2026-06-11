@@ -24,18 +24,30 @@ def read_tree(path: str):
     lines.append(f"{root.name}/")
 
     def get_children(current: Path):
-        """✅ 使用统一 ignore 策略"""
         try:
             children = list(current.iterdir())
-        except PermissionError:
+        except Exception:
             return []
 
-        # ✅ 核心：统一过滤
-        filtered = [c for c in children if not should_ignore(c, root)]
+        filtered = []
+        for c in children:
+            try:
+                if not should_ignore(c, root):
+                    filtered.append(c)
+            except Exception:
+                continue
 
         return sorted(filtered, key=lambda x: x.name)
 
-    def traverse(current: Path, prefix: str = ""):
+    def traverse(current: Path, prefix: str = "", seen: set = None):
+        if seen is None:
+            seen = set()
+        real = current.resolve()
+        if real in seen:
+            lines.append(f"{prefix}└── {current.name}/ (symlink loop)")
+            return
+        seen.add(real)
+
         children = get_children(current)
         total = len(children)
 
@@ -49,7 +61,7 @@ def read_tree(path: str):
 
             if child.is_dir():
                 new_prefix = prefix + ("    " if is_last else "│   ")
-                traverse(child, new_prefix)
+                traverse(child, new_prefix, seen.copy())
 
     traverse(root)
 

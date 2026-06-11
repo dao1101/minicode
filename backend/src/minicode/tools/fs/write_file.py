@@ -10,7 +10,7 @@ def write_file(path: str, content: str):
     content: text to write
     """
 
-    with open(path, "w", encoding="utf-8") as f:
+    with open(path, "w") as f:
         f.write(content)
 
     return "ok"

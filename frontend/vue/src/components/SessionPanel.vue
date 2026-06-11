@@ -1,25 +1,25 @@
 <template>
   <div class="session-panel">
     <div class="sp-header">
-      <span class="sp-title-text">历史会话</span>
+      <span class="sp-title-text">History</span>
       <input
         v-model="query"
         class="sp-search"
-        placeholder="🔍 搜索..."
+        placeholder="🔍 Search..."
         @input="onSearch"
       />
       <button
         class="sp-btn-mode"
         :class="{ active: semantic }"
         @click="semantic = !semantic; reload()"
-        title="语义搜索"
+        title="Semantic search"
       >
         🔍⇄
       </button>
       <button class="sp-close" @click="$emit('close')">✕</button>
     </div>
 
-    <div v-if="loading" class="sp-empty">加载中...</div>
+    <div v-if="loading" class="sp-empty">Loading...</div>
 
     <div v-else-if="sessions.length" class="sp-list">
       <div
@@ -29,13 +29,13 @@
         @click="$emit('load', s.id)"
       >
         <div class="sp-item-title">{{ s.title }}</div>
-        <div class="sp-item-meta">{{ formatDate(s.created_at) }} · {{ s.count }} 条消息</div>
-        <button class="sp-del" @click.stop="onDelete(s.id)" title="删除">🗑</button>
+        <div class="sp-item-meta">{{ formatDate(s.created_at) }} · {{ s.count }} messages</div>
+        <button class="sp-del" @click.stop="onDelete(s.id)" title="Delete">🗑</button>
       </div>
     </div>
 
     <div v-else class="sp-empty">
-      {{ query ? '无匹配结果' : '暂无历史会话' }}
+      {{ query ? 'No results' : 'No sessions yet' }}
     </div>
   </div>
 </template>
@@ -77,7 +77,7 @@ function onSearch() {
 onUnmounted(() => clearTimeout(debounceTimer))
 
 async function onDelete(id) {
-  if (!confirm('确认删除这条会话？')) return
+  if (!confirm('Delete this session?')) return
   const ctrl = withTimeout()
   try {
     await deleteSession(id, ctrl.signal)

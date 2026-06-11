@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import Editor from './components/Editor.vue'
 import Chat from './components/Chat.vue'
@@ -46,6 +46,10 @@ const resizing = ref(null)
 
 watch(sidebarWidth, () => {
   localStorage.setItem('sidebarWidth', sidebarWidth.value)
+})
+
+watch(isSidebarCollapsed, () => {
+  nextTick(updateEditorWidth)
 })
 
 function updateEditorWidth() {
@@ -128,7 +132,7 @@ onUnmounted(() => {
 .sidebar {
   position: relative;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow: auto;
   transition: width 0.2s;
 }
 

@@ -1,4 +1,4 @@
-import { uiState } from './uiState'
+import { uiState, persistUiState } from './uiState'
 
 export const uiActions = {
   toggleMode() {
@@ -10,6 +10,7 @@ export const uiActions = {
     uiState.currentFile = file
     uiState.currentCode = code
     uiState.diff = null
+    persistUiState()
   },
 
   setDiff(diff) {

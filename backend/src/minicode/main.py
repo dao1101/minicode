@@ -143,6 +143,12 @@ async def ping():
     return {"status": "ok"}
 
 
+@api.post("/memory/clear")
+async def memory_clear():
+    controller.agent.memory.clear()
+    return {"ok": True}
+
+
 # ─── Sessions ────────────────────────────────────────────────────────────────
 
 

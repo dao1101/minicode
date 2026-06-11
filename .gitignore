@@ -65,3 +65,6 @@ lerna-debug.log*
 # 子目录有docs/tests也想忽略就加**/
 **/docs/
 **/tests/
+
+# Session Data
+.session/

@@ -3,18 +3,18 @@
 
     <!-- 会话工具栏 -->
     <div class="session-bar">
-      <button class="sb-btn" @click="newChat" title="清空开始新对话">＋ 新建</button>
-      <button class="sb-btn" @click="onSave" title="保存当前会话" :disabled="!messages.length">
-        💾 保存
+      <button class="sb-btn" @click="newChat" title="Clear and start new chat">＋ New</button>
+      <button class="sb-btn" @click="onSave" title="Save current session" :disabled="!messages.length">
+        💾 Save
       </button>
-      <button class="sb-btn" @click="showSessions = true" title="浏览历史会话">
-        📂 历史
+      <button class="sb-btn" @click="showSessions = true" title="Browse history">
+        📂 History
       </button>
       <button
         class="sb-btn"
         :class="{ active: useRag }"
         @click="useRag = !useRag"
-        title="启用 RAG 检索历史上下文"
+        title="Enable RAG context retrieval"
       >
         🧠 RAG
       </button>
@@ -68,9 +68,10 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, watch, onMounted } from 'vue'
 import { streamChat } from '../api/chat'
 import { saveSession, loadSession, withTimeout } from '../api/sessions'
+import { clearMemory } from '../api/memory'
 import InputBox from './InputBox.vue'
 import SessionPanel from './SessionPanel.vue'
 import { uiState } from '../stores/uiState'
@@ -110,6 +111,27 @@ const messagesContainer = ref(null)
 const showSessions = ref(false)
 const saveStatus = ref('')
 const useRag = ref(false)
+
+watch(messages, () => {
+  const raw = messages.value.map(m => ({ role: m.role, text: m.text }))
+  localStorage.setItem('chat_messages', JSON.stringify(raw))
+}, { deep: true })
+
+onMounted(() => {
+  const saved = localStorage.getItem('chat_messages')
+  if (saved) {
+    try {
+      const restored = JSON.parse(saved)
+      messages.value = restored.map(m => ({
+        role: m.role,
+        text: m.text,
+        thinking: '',
+        tools: []
+      }))
+      nextTick(scrollToBottom)
+    } catch (_) {}
+  }
+})
 
 function scrollToBottom() {
   nextTick(() => {
@@ -162,8 +184,10 @@ function setupCopyButtons() {
 // ─── Session actions ──────────────────────────────────────────────────────────
 
 function newChat() {
-  if (messages.value.length && !confirm('清空当前对话？未保存内容将丢失。')) return
+  if (messages.value.length && !confirm('Clear current chat? Unsaved content will be lost.')) return
   messages.value = []
+  localStorage.removeItem('chat_messages')
+  clearMemory().catch(() => {})
 }
 
 async function onSave() {
@@ -174,11 +198,12 @@ async function onSave() {
       .filter(m => m.role === 'user' || m.role === 'assistant')
       .map(m => ({ role: m.role, content: m.text }))
     await saveSession('', payload, ctrl.signal)
-    saveStatus.value = '✓ 已保存'
+    localStorage.removeItem('chat_messages')
+    saveStatus.value = '✓ Saved'
     setTimeout(() => { saveStatus.value = '' }, 2000)
   } catch (e) {
     console.error('save session error:', e)
-    saveStatus.value = '✗ 保存失败'
+    saveStatus.value = '✗ Save failed'
     setTimeout(() => { saveStatus.value = '' }, 2000)
   } finally {
     ctrl.cancel()
@@ -291,8 +316,11 @@ function handleEvent(e, assistantIndex) {
       break
 
     case 'error':
-      const errorContent = typeof e.content === 'string' ? e.content : JSON.stringify(e.content)
-      msg.text = `❌ ${errorContent}`
+      msg.tools.push({
+        type: 'result',
+        name: 'Error',
+        content: typeof e.content === 'string' ? e.content : JSON.stringify(e.content)
+      })
       break
   }
 }
