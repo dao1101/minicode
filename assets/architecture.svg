@@ -77,6 +77,6 @@
   <!-- Sessions -->
   <rect x="52" y="572" width="620" height="96" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
   <text font-family="sans-serif" font-size="14" font-weight="500" fill="#2C2C2A" x="362" y="604" text-anchor="middle" dominant-baseline="central">Sessions + embeddings</text>
-  <text font-family="sans-serif" font-size="12" fill="#5F5E5A" x="362" y="626" text-anchor="middle" dominant-baseline="central">.minicode/sessions/*.json</text>
+  <text font-family="sans-serif" font-size="12" fill="#5F5E5A" x="362" y="626" text-anchor="middle" dominant-baseline="central">~/backend/.sessions/*.json</text>
   <text font-family="sans-serif" font-size="12" fill="#5F5E5A" x="362" y="646" text-anchor="middle" dominant-baseline="central">{ meta, messages, embedding: [...] }</text>
 </svg>

@@ -81,7 +81,7 @@ Frontend (Vue3) ←SSE Streaming→ Backend (FastAPI) ←API→ Multiple LLM Ser
 
 ### 6. Session Management
 
-- Store sessions in local JSON files: `~/.minicode/sessions/`
+- Store .sessions in local JSON files: `~/backend/.sessions`
 - Support CRUD, keyword search and semantic search
 - Auto generate session titles and timestamps
 
