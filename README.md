@@ -19,6 +19,8 @@ The project supports automatic failover for multiple LLM providers and requires 
 
 # My Project
 
+![Architecture](./assets/architecture.svg)
+
 ### 1. Layered Architecture
 
 ```
