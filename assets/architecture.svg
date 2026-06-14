@@ -72,11 +72,11 @@
   <line x1="129" y1="372" x2="129" y2="398" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)"/>
 
   <!-- Arrow: backend → sessions -->
-  <line x1="362" y1="536" x2="362" y2="570" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="340" y1="536" x2="340" y2="570" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- Sessions -->
-  <rect x="52" y="572" width="620" height="96" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
-  <text font-family="sans-serif" font-size="14" font-weight="500" fill="#2C2C2A" x="362" y="604" text-anchor="middle" dominant-baseline="central">Sessions + embeddings</text>
-  <text font-family="sans-serif" font-size="12" fill="#5F5E5A" x="362" y="626" text-anchor="middle" dominant-baseline="central">~/backend/.sessions/*.json</text>
-  <text font-family="sans-serif" font-size="12" fill="#5F5E5A" x="362" y="646" text-anchor="middle" dominant-baseline="central">{ meta, messages, embedding: [...] }</text>
+  <rect x="30" y="572" width="620" height="96" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+  <text font-family="sans-serif" font-size="14" font-weight="500" fill="#2C2C2A" x="340" y="604" text-anchor="middle" dominant-baseline="central">Sessions + embeddings</text>
+  <text font-family="sans-serif" font-size="12" fill="#5F5E5A" x="340" y="626" text-anchor="middle" dominant-baseline="central">~/backend/.sessions/*.json</text>
+  <text font-family="sans-serif" font-size="12" fill="#5F5E5A" x="340" y="646" text-anchor="middle" dominant-baseline="central">{ meta, messages, embedding: [...] }</text>
 </svg>
